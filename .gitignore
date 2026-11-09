@@ -1,0 +1,45 @@
+# ---- 大文件与第三方素材：不要入库 ----
+*.apk
+*.apk.zip
+*.img
+*.bin
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+
+# 备份与历史版本快照（含内嵌铃声）
+_backup/
+*.bak
+
+# 内嵌了商业铃声的页面（判据：含 data:audio base64）
+page/index-*.html
+page/clock-with-ringtones.html
+ringtones/
+*.mp3
+*.ogg
+*.m4a
+*.wav
+
+# 例外：仓库自带的合成提示音（纯正弦合成，随 MIT 分发）
+!assets/chime.wav
+
+# 设备取证 / 调试输出
+*.log
+dbg_*.txt
+*_dump.txt
+ls.log
+*.png.dump
+
+# 系统与编辑器
+Thumbs.db
+desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# 含本机路径的临时脚本
+_tmp/
+scratch/
