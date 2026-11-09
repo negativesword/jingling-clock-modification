@@ -6,7 +6,7 @@
 
 ## 0. 现在的状态：**已发布**
 
-`https://github.com/negativesword/jingling-clock-modification`（public，main 分支，首个 commit `a1a54dd`）
+`https://github.com/negativesword/jingling-clock-modification`（public，main 分支，唯一 commit `9c6d9c9`，tag `v1.0.0` 指向同一 commit）
 
 | 项 | 状态 | 位置 |
 | --- | --- | --- |
@@ -17,7 +17,9 @@
 | 文档 5 篇 + 骨架 | ✅ | README / PUBLISH / docs×4 / module / tools |
 | **`git` 命令** | ✅ 已装（MinGit 便携版，`AppData\Local\git-mingit\cmd\git.exe`，v2.56.0） | 装法与踩点见第 4 节 |
 | **本地仓库** | ✅ `git init -b main` + 提交完成，工作区干净 | `.git/` |
-| **push 到 GitHub** | ✅ 已推上 `main`；远端 `page/index.html` 的 blob sha 与本地一致（`2c398ff7…`），即逐字节相同 | 第 4 节 |
+| **push 到 GitHub** | ✅ 已推上 `main`；远端 `page/index.html` 的 blob sha 与本地一致（`80906ee8…`），即逐字节相同 | 第 4 节 |
+| **仓库简介 / Topics** | ✅ 已填（简介一句中文概述 + 10 个 topic：`android` `magisk` `webview` `kiosk` `flipclock` `pomodoro` `android-8` `mt8167s` `smart-display` `infoscreen`） | 仓库首页 About |
+| **Release `v1.0.0`** | ✅ 已建，正文即第 4 节那份草稿的成品版 | Releases 页 |
 
 ### 页面是怎么从真机版变成仓库版的（可复现）
 
@@ -248,7 +250,7 @@ Release 说明草稿：
 
 | 文件名 | 内容 |
 | --- | --- |
-| `main-clock.png` | 时钟页成品（翻页钟 + 农历 + 公司名 + 底部三图标 + 🍅） |
+| `main-clock.png` | 时钟页成品（翻页钟 + 农历 + 标语位 ××× + 底部三图标 + 🍅） |
 | `calendar.png` | 日历页（左滑进入，红点标今天、第 46 周） |
 | `countdown-panel.png` | 倒计时面板（三列滚轮 + 五个快捷格 + 铃声行「提示音」） |
 | `pomodoro-focus.png` | 番茄钟专注态（`#BA4949` 红底、160px 大字、四颗轮次🍅） |
