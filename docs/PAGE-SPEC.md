@@ -1,4 +1,4 @@
-# 页面规格（v22b）
+# 页面规格（v22c）
 
 单文件 `clock.html`，目标设备固定 **1024×600 / Chrome 61 / 无键盘 / 触摸**。
 所有尺寸按像素写死，不用 vw/vh、不用 flex `gap`、不用无前缀 `transform`。
@@ -154,8 +154,8 @@ document.getElementById('pomoBtn').style.visibility = '';         // cdClose
 
 | 版本 | 体积 | 构成 | 首渲 |
 | --- | --- | --- | --- |
-| 真机 v22b（自用） | 5,516,575 B | 代码 ~40KB + 七首 iOS 铃声 base64 | 32~38 秒 |
-| 仓库版（本仓库 `page/index.html`） | 240,939 B | 代码 ~40KB + 一段自制合成提示音 base64（187,792 B） | 约 8~10 秒 |
+| 真机 v22c（自用，含倒计时持久化） | 5,517,842 B | 代码 ~40KB + 七首 iOS 铃声 base64 | 32~38 秒 |
+| 仓库版（本仓库 `page/index.html`） | 242,206 B | 代码 ~40KB + 一段自制合成提示音 base64（187,792 B） | 约 8~10 秒 |
 
 体积直接决定首渲时间，而首渲时间又决定"force-stop 之后要等多久再截图"：5.5MB 版本必须等 32 秒以上，240KB 版本 8~10 秒就够。旧的 v22b 在 1GB 机器上实测 kiosk `VmRSS 162 MB / VmHWM 173 MB`，系统 `MemAvailable 486,856 kB`——内存不是瓶颈，**首渲耗时才是**。
 

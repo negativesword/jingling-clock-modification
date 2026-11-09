@@ -534,7 +534,7 @@
 
     /* 倒计时：每秒刷新；到点转成“时间到” */
     if (cdRunning) {
-      if (now.getTime() >= cdEnd) { cdRunning = false; cdDone = true; alarmStart(); }
+      if (now.getTime() >= cdEnd) { cdRunning = false; cdDone = true; cdSaveState(); alarmStart(); }
     }
     cdRender();
   }
@@ -588,6 +588,18 @@
 ];
   var CD_RING_KEY = 'cdRing_v1';
   var cdRing = 0;
+  /* 刷新 / 被杀重启后能接着跑：把“绝对结束时刻”落盘 */
+  var CD_STATE_KEY = 'cdState_v1';
+
+  function cdSaveState(){
+    try {
+      if (cdRunning && cdEnd > 0) {
+        window.localStorage.setItem(CD_STATE_KEY, JSON.stringify({ end: cdEnd, total: cdTotal }));
+      } else {
+        window.localStorage.removeItem(CD_STATE_KEY);
+      }
+    } catch (e) {}
+  }
   var ringFail = false;
   var alarmOn = false, alarmStopTimer = null, beepTimer = null, alarmBeeps = 0;
 
@@ -671,12 +683,38 @@
     cdDone = false; cdRunning = true;
     cdEnd = new Date().getTime() + cdTotal * 1000;
     alarmStop();
+    cdSaveState();
     cdRender();
   }
   function cdStop(){
     alarmStop();
     cdRunning = false; cdDone = false; cdEnd = 0;
+    cdSaveState();
     cdRender();
+  }
+
+  /* 页面重载后接回状态：还在跑就继续倒数；刚好在重载期间到点（60s 内）就补上“时间到”并响铃 */
+  function cdRestoreState(){
+    try {
+      var raw = window.localStorage.getItem(CD_STATE_KEY);
+      if (!raw) { return; }
+      var st = JSON.parse(raw);
+      if (!st || !st.end) { return; }
+      var now = new Date().getTime();
+      if (st.total > 0) { cdTotal = st.total; cdSetWheels(cdTotal); }
+      if (st.end > now) {
+        cdDone = false; cdRunning = true; cdEnd = st.end;
+        cdRender();
+        return;
+      }
+      if (now - st.end <= 60000) {
+        cdRunning = false; cdDone = true; cdEnd = st.end;
+        cdRender();
+        alarmStart();
+        return;
+      }
+      window.localStorage.removeItem(CD_STATE_KEY);
+    } catch (e) {}
   }
 
   /* ---- 闹钟音 ---- */
@@ -1105,6 +1143,7 @@
   }
 
   renderCalendar(new Date());
+  cdRestoreState();
   tick();
   setInterval(tick, 1000);
 })();

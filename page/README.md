@@ -6,8 +6,8 @@
 
 | 项 | 值 |
 | --- | --- |
-| 体积 | 240,939 B（代码约 40KB + 一段自制合成提示音 base64 187,792 B） |
-| MD5 | `a84cdc432a4025d1226f11fe13ca2aa0` |
+| 体积 | 242,206 B（代码约 40KB + 一段自制合成提示音 base64 187,792 B） |
+| MD5 | `c67bbdedc9897bfec19e3ce945e3c5ec` |
 | 音频 | 只有 1 段：`data:audio/wav;base64,…`，来自 `../assets/chime.wav` |
 | 商业素材 | 无（七首 iOS 铃声已全部剔除） |
 | 已验证 | 2026-11-09 推上 TG_S1 实机跑通：上屏、开面板、试听（`dumpsys media.audio_flinger` 有 1 条 active track）、番茄钟、返回 |

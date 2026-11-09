@@ -186,6 +186,35 @@ adb shell su -c 'dumpsys audio'      # 看 STREAM_MUSIC 未被静音
 到点逻辑：先试铃声，1.5s 内没拿到 buffer 就回落到 `beepLoop()`（880×2 + 1046Hz，2.5s 一轮、24 轮自停），另有 60s 总兜底停表。
 **注意**：剥离内嵌铃声（发布版）后，倒计时有这个回落；番茄钟的 `pmChime()` 目前没有回落分支，需要自己补一行 `if (!ringSrc) beepLoop();`。
 
+### D5. 刷新一下，倒计时就没了（页面层）
+
+**现象**：在操作页误触重载、或看门狗 force-stop 后重开，正在跑的倒计时直接回到空闲。原话："操作界面不小心刷新会冲掉当前的倒计时"。
+**根因**：`cdTotal / cdEnd / cdRunning / cdDone` 只活在内存里。页面是 `file://` 单文件，WebView 每次重载都会重跑一遍 IIFE，状态清零。番茄钟没这个问题——它早就把**绝对结束时刻**写进了 `localStorage`（`pomo_s1`）。
+**修法**：照番茄钟的范式，把倒计时的绝对结束时刻落盘，键名 `cdState_v1`：
+
+```js
+function cdSaveState(){
+  try {
+    if (cdRunning && cdEnd > 0) {
+      window.localStorage.setItem(CD_STATE_KEY, JSON.stringify({ end: cdEnd, total: cdTotal }));
+    } else { window.localStorage.removeItem(CD_STATE_KEY); }
+  } catch (e) {}
+}
+```
+
+三个写入点：`cdStart()`（起跑落盘）、`tick()` 里到点翻成 `cdDone` 的那一瞬（此时 `cdRunning` 已为 false，等于清）、`cdStop()`（清）。
+
+恢复函数 `cdRestoreState()` 放在初始化里、`tick()` 之前，三种情形分开处理：
+
+| 重载时的情形 | 行为 |
+| --- | --- |
+| `end` 还没到 | 接着跑，剩余＝`end - now`，不重新计时 |
+| `end` 已过但 ≤60s | 补成"时间到"并响一轮（避免"正好在重载期间到点"被吞掉） |
+| `end` 已过 >60s | 清记录回空闲（防隔夜重载突然响铃） |
+
+**为什么存绝对时刻而不是剩余秒数**：首渲本身要 14s（真机 5.5MB 版约 35s），存剩余秒数等于让这段空白白跑；`end` 是时间戳，重载耗多久都不影响精度。
+**残留限制**：`cdRestoreState()` 里的 `alarmStart()` 可能因没有用户手势被 autoplay 策略拦掉——"时间到"一定显示，声音不一定有。这是 Chrome 61 的策略，不是逻辑错。
+
 ---
 
 ## E. 文件、编码与工具链

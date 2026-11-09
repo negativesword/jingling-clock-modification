@@ -10,7 +10,7 @@
 
 | 项 | 状态 | 位置 |
 | --- | --- | --- |
-| 页面本体 | ✅ 已就位，**已在实机跑通** | `page/index.html`（240,939 B / md5 `a84cdc43…`，1 段自制合成提示音） |
+| 页面本体 | ✅ 已就位，**已在实机跑通** | `page/index.html`（242,206 B / md5 `c67bbded…`，1 段自制合成提示音） |
 | 提示音源文件 | ✅ | `assets/chime.wav`（140,844 B，纯正弦合成，MIT 可分发） |
 | 合成脚本 | ✅ | `tools/make_chime.py` |
 | 截图 5 张 | ✅ 实机拍，已改名落盘 | `docs/images/`（main-clock / calendar / countdown-panel / pomodoro-focus / pomodoro-cfg） |
@@ -23,7 +23,7 @@
 
 ### 页面是怎么从真机版变成仓库版的（可复现）
 
-真机版 v22b = 5,516,575 B，其中七首 iOS 铃声的 base64 占了绝大部分。仓库版**用一段自制音频顶掉那七首**，而不是把 `RINGS` 置空——这样铃声行、试听按钮、`cdRing_v1` 这套逻辑在开源版里仍完整可见、可点、有声：
+真机版 v22b = 5,517,842 B，其中七首 iOS 铃声的 base64 占了绝大部分。仓库版**用一段自制音频顶掉那七首**，而不是把 `RINGS` 置空——这样铃声行、试听按钮、`cdRing_v1` 这套逻辑在开源版里仍完整可见、可点、有声：
 
 ```bash
 # ① 合成本仓库自己的提示音（988Hz + 1319Hz 叮咚，4.4s，16kHz/16bit/mono）
@@ -33,9 +33,9 @@ python tools/make_chime.py --wav assets/chime.wav
 python tools/pack_ringtones.py --page page/index.html --src assets --names 提示音 --out page/index.html
 ```
 
-结果：7 段 `data:audio/mpeg` → 1 段 `data:audio/wav`；体积 5,516,575 B → 240,966 B；`RINGS` 的 6 处引用全部保留；`node --check` 校验脚本块 `1 block / 219,467 chars / 0 失败`。
+结果：7 段 `data:audio/mpeg` → 1 段 `data:audio/wav`；体积 5,517,842 B → 242,233 B；`RINGS` 的 6 处引用全部保留；`node --check` 校验脚本块 `1 block / 219,467 chars / 0 失败`。
 
-之后又把时钟页标语位置的公司名换成「×××」（11 个汉字 → 3 个字符，少 27 B），因此最终体积 **240,939 B**、md5 `a84cdc43…`。这一步是发布侧的匿名化处理：`page/index.html` 的 `.caption` 文案与 `docs/images/main-clock.png` 截图里的同一处文字都换成了「×××」，真机自用版（v22b）仍保留原名，两者互不影响。截图是**用匿名化后的这版页面重新上机拍**的，不是后期涂改。
+之后又把时钟页标语位置的公司名换成「×××」（11 个汉字 → 3 个字符，少 27 B），因此最终体积 **242,206 B**、md5 `c67bbded…`。这一步是发布侧的匿名化处理：`page/index.html` 的 `.caption` 文案与 `docs/images/main-clock.png` 截图里的同一处文字都换成了「×××」，真机自用版（v22b）仍保留原名，两者互不影响。截图是**用匿名化后的这版页面重新上机拍**的，不是后期涂改。
 
 另外给番茄钟补了原来缺的那行兜底（`pmChime()` 里铃声失败就 `beepLoop()`，并在 6 秒收尾时清掉 `beepTimer`）——倒计时本来就有这条兜底，番茄钟当时没有。
 
@@ -74,7 +74,7 @@ docs/PITFALLS.md
 docs/PAGE-SPEC.md
 docs/VERSION_LOG.md
 docs/images/*.png            ← 5 张实机截图（README 已引用）
-page/index.html              ← 页面本体（240,939 B，含 1 段自制合成提示音）
+page/index.html              ← 页面本体（242,206 B，含 1 段自制合成提示音）
 page/README.md
 assets/chime.wav             ← 自制提示音源文件（.gitignore 里做了例外）
 module/README.md
@@ -96,7 +96,7 @@ tools/deploy-page.ps1
 
 ### 关于页面文件的三条硬要求（现状已全部满足）
 
-1. **页面里只能有自制音频**。判据：`data:audio/mpeg;base64` 计数为 `0`、`data:audio/wav;base64` 计数为 `1`；体积 240,939 B 而不是 5.5 MB。
+1. **页面里只能有自制音频**。判据：`data:audio/mpeg;base64` 计数为 `0`、`data:audio/wav;base64` 计数为 `1`；体积 242,206 B 而不是 5.5 MB。
 2. **即使一段音频都没有，到点也必须响**：`alarmStart()` 与 `pmChime()` 都在 1.5 秒内检查 `ringFail || !ringSrc`，命中就回落 `beepLoop()`（WebAudio 直接振荡，不依赖任何解码）。
 3. **`assets/chime.wav` 不能被 `.gitignore` 的 `*.wav` 吃掉**——仓库里已经写了 `!assets/chime.wav` 例外，克隆下来用 `git check-ignore -v assets/chime.wav` 验证一下。
 
@@ -121,7 +121,7 @@ tools/deploy-page.ps1
 
 # ② 体积与指纹
 Get-ChildItem .\page\index.html | Select-Object Name, Length
-Get-FileHash .\page\index.html -Algorithm MD5        # 期望 a84cdc432a4025d1226f11fe13ca2aa0
+Get-FileHash .\page\index.html -Algorithm MD5        # 期望 c67bbdedc9897bfec19e3ce945e3c5ec
 
 # ③ 有没有把本机绝对路径 / 私网 IP 带进文档
 Select-String -Path .\README.md, .\docs\*.md, .\page\README.md, .\module\README.md -Pattern 'ZHU HONG|C:\\Users|192\.168\.' | Select-Object Path, LineNumber
@@ -143,7 +143,7 @@ Get-ChildItem .\docs\images | Select-Object Name, Length
 本次四项实测结果（2026-11-09）：
 
 - ① `data:audio/mpeg` = **0**，`data:audio/wav` = **1**
-- ② 240,939 B，MD5 = `A84CDC432A4025D1226F11FE13CA2AA0`（小写即 `a84cdc43…`）
+- ② 242,206 B，MD5 = `C67BBDEDC9897BFEC19E3CE945E3C5EC`（小写即 `c67bbded…`）
 - ③ 只有两处命中，都不是泄漏：`PUBLISH.md` 自己那行自检命令、`docs/DEPLOY.md` 里的 `192.168.x.x`（本来就脱敏成 x）
 - ④ `lpDbg` = 0、`window.onerror` = 0；**不要用 `Dbg` 这个宽词去搜**，它会在 base64 里撞出假的命中
 - ⑤ `node --check` 通过（1 个 script 块，219,467 chars）
@@ -175,7 +175,7 @@ Expand-Archive MinGit.zip 'C:\Users\<you>\AppData\Local\git-mingit' -Force
 Windows 上 git 默认 `core.autocrlf=true`，会在入库时把 LF 改成 CRLF。这套仓库里两样东西会被它直接搞坏：
 
 - `module/service.sh` 变成 CRLF → Android 上 `sh` 解释器读不了（`bad interpreter` / 直接不执行）；
-- `page/index.html` 字节数变化 → 文档里公示的 md5 `a84cdc43…` 当场失效，读者对不上账。
+- `page/index.html` 字节数变化 → 文档里公示的 md5 `c67bbded…` 当场失效，读者对不上账。
 
 所以建仓第一步就写 `.gitattributes` 并设 `core.autocrlf=false`：
 
@@ -190,7 +190,7 @@ git config core.autocrlf false
 git config core.eol lf
 ```
 
-验证办法：`git ls-tree -r -l HEAD` 里三个关键文件的 blob 体积必须与工作区一致——`page/index.html` 240,939 / `assets/chime.wav` 140,844 / `module/service.sh` 1,462。任何一个不等，就是行尾或过滤器动过手脚。
+验证办法：`git ls-tree -r -l HEAD` 里三个关键文件的 blob 体积必须与工作区一致——`page/index.html` 242,206 / `assets/chime.wav` 140,844 / `module/service.sh` 1,462。任何一个不等，就是行尾或过滤器动过手脚。
 
 ### 首次提交与推送（本机已执行完毕）
 
