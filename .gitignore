@@ -12,6 +12,7 @@
 # 备份与历史版本快照（含内嵌铃声）
 _backup/
 *.bak
+page/_backup-*.html
 
 # 内嵌了商业铃声的页面（判据：含 data:audio base64）
 page/index-*.html

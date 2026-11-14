@@ -41,11 +41,11 @@ chcon u:o:system_data_file:s0 /data/system/users/0/package-restrictions.xml
 kill $(pidof system_server)      # 软重启；绝不能正常关机
 ```
 
-### A4. 整个 smartapp 包不能隐藏（设备层）
+### A4. 遮蔽 smartapp 后 SystemUI 崩溃-退避链（设备层）
 
-**现象**：把 `com.alibaba.ailabs.genie.smartapp` 整包隐藏后，`SettingsProvider` 反复抛 `SecurityException`，被 MTK AEE 计数到第 5 次直接重启。
-**根因**：系统设置依赖该包的 `DataCenterProvider`。
-**结论**：这是本机唯一"删不掉"的包。只禁它内部的 `BootHomeActivity`，包本体保留（内存约 90MB RSS，已禁用组件后不再作为桌面常驻）。
+**现象**：把 `com.alibaba.ailabs.genie.smartapp`（连同 `AliGenieService`、`GenieRTC`）用 0 字节占位遮蔽后，包确实从包管理器消失、内存与 CPU 都省下来了，但 `SystemUI` 开始周期性崩溃，间隔逐次拉长（1 → 2 → 4 分钟……），最后被 MTK AEE 计数到阈值整机重启。
+**根因**：`SettingsProvider` / `SystemUI` 会 `query` 天猫精灵提供的 6 个 `ContentProvider` authority（`…genie.datacenter.DataCenterProvider` 等）。包没了，authority 无人声明，调用方不判空 → 崩。
+**结论**：**能遮蔽，但必须先补 provider。** 自建一个 8.6 KB 的桩 APK（`com.zhu.geniestub`）声明这 6 个 authority、所有 `query` 返回空 `MatrixCursor`，装好后 SystemUI 不再崩。这套方案的完整步骤、残留告警与回滚见 [`SYSTEM-SLIMMING.md`](SYSTEM-SLIMMING.md)。
 
 ### A5. `adb pull` 直接崩（工具层，但影响所有取证）
 
@@ -54,12 +54,18 @@ kill $(pidof system_server)      # 软重启；绝不能正常关机
 ```bash
 adb shell su -c "base64 <path>"
 ```
-再在本地 `[Convert]::FromBase64String` 写盘。推文件用"TCP + 设备端 `toybox nc` + md5sum 对账"的自建通道（见 `tools/deploy-page.ps1` 注释）。
+再在本地 `[Convert]::FromBase64String` 写盘。推文件同样走 base64：把整份 base64 从 stdin 喂给设备端 `base64 -d`（见 E6），**不要走 TCP + `nc` 那条回连通道**——它在连不上时会先把目标文件截成 0 字节。
 
 ### A6. 不能 `adb reboot`
 
 **现象/约束**：安全策略硬阻断 `adb reboot`，只能物理断电或 `kill $(pidof system_server)` 软重启。
 **影响**：验收冷启动必须靠拔电。
+
+### A7. `suspend` 挡不住系统主动拉起的包（设备层）
+
+**现象**：`cmd package suspend` 后 `dumpsys package` 里 `suspended=true` 仍在，但 `com.google.android.inputmethod.pinyin` 开机照旧占 **70 MB RSS**。
+**根因**：suspend 只拦"自己想起床"的组件；输入法是系统里唯一注册的 IME，`InputMethodManager` 会把它的进程直接拉起。
+**结论**：suspend 对普通应用有效、对系统必需角色无效。想省这 70 MB 只能换/删 IME，本机没做（信息屏用不到键盘，但也不想为一个用不到的功能改动输入法框架）。
 
 ---
 
@@ -277,6 +283,19 @@ $b64 | & adb -s <device-ip>:5555 shell "su -c 'base64 -d > /data/local/tmp/new.h
 ② **先写到 `/data/local/tmp`，核对 md5，再 `cp` 覆盖正式位置**。绝不要让正式文件成为传输的第一落点。
 ③ 既然 `/sdcard/clock/index.html` 里留了一份完整页面，**出事后就地恢复**：`su -c 'cp /sdcard/clock/index.html /data/adb/modules/infoscreen/system/etc/clock.html'`，几秒钟就能回到可用状态，不必等重新传 5MB。
 ④ 每次传完都 `md5sum` 对账——`nc`/重定向这类通道"命令成功返回"不代表字节到位。
+
+### E7. 不要对模块内文件跑 `restorecon`（工具层，白屏事故）
+
+**现象**：改完 `/data/adb/modules/infoscreen/system/etc/clock.html`，顺手 `restorecon` 想让 SELinux 标签"正确"，`am force-stop` 后 WebView 直接白屏，`logcat` 报 `ERR_FILE_NOT_FOUND`。
+**根因**：`restorecon` 按**真实路径**（`/data/adb/modules/…`）去匹配策略，把文件标成 `u:object_r:adb_data_file:s0`。这个路径对 WebView 来说是 `/system/etc/clock.html`，标签不对就读不到。
+**修法**：
+
+```bash
+su -c 'chcon u:object_r:system_file:s0 /data/adb/modules/infoscreen/system/etc/clock.html'
+su -c 'ls -lZ /data/adb/modules/infoscreen/system/etc/clock.html'   # 与 /system/etc/hosts 的标签比对
+```
+
+用 `cat > 文件` 覆盖写可以保住 inode 与标签，所以日常改页面**不要删了重建**，直接 `cat` 覆盖。
 
 ---
 

@@ -1,4 +1,4 @@
-# 页面规格（v22c）
+# 页面规格（v23）
 
 单文件 `clock.html`，目标设备固定 **1024×600 / Chrome 61 / 无键盘 / 触摸**。
 所有尺寸按像素写死，不用 vw/vh、不用 flex `gap`、不用无前缀 `transform`。
@@ -24,8 +24,11 @@
 | 卡片渐变 | 10 个色标 `#272727 → #0B0B0B` + 竖向细纹 |
 | 质感 | 五条 box-shadow；`.shade`（`top:50%`，z2，`pointer-events:none`）；`.seam`（`top:50%`、高 4px、z3） |
 | 数字 | `sans-serif-condensed`，276px / 700 / `#D8D8D8` / `scaleX(.78)` / `tabular-nums`，z1 |
-| 日期行 | `top:74px`，26px，`#8E8E8E`，格式 `2026年11月8日 九月三十 周日` |
-| 倒计时状态行 | `.cd-status`：`top:462px; height:44px; line-height:44px`，19px，字距 2px，z6，整行热区 |
+| 顶行 · 星期 | `.day-line`：`top:74px; left:44px`，26px，`#8E8E8E`，字距 1px，文本「星期六」；`tick()` 里 `dayShown` 守卫，变了才写 |
+| 顶行 · 日期 | `.date-line`：`top:74px; left:0; right:0; text-align:center`，26px，`#8E8E8E`，字距 1px，格式 `2026年11月14日`（只有公历，无农历） |
+| 顶行 · 周数 | `.week-line`：`top:74px; right:44px`，26px，`#8E8E8E`，字距 1px，文本「第 46 周」；与左端 `left:44px` 对称，`tick()` 里 `weekShown` 守卫 |
+| 倒计时状态行 | `.cd-status`：`top:456px; height:44px; line-height:44px`，z6，整行热区；空闲 19px `#8E8E8E`，运行/最后一分钟/到点共用 `.cd-status.run`：30px / `#EDEDED` / 600 / 字距 3px / `tabular-nums`，文本前缀 `⌛ `（`U+231B`） |
+| 倒计时底条 | `.cd-status.run::before`（含 `.final10` / `.done`）：320×46 圆角 10、水平居中、`z-index:-1`、`background:rgba(255,255,255,.08)`——只提亮不抢戏，空闲态不绘制 |
 | 公司名 | `.caption`：`top:505px`，24px，`#9C9C9C`，字距 4px，`line-height:28px`，`pointer-events:none`，文案「×××」 |
 | 左下快捷图标组 | `#cdQuick`：`left:16px; top:489px; z-index:20; height:60px`；`.icbtn` 84×60，间距 6；svg 40px，`margin-top:10px`，描边 `rgba(255,255,255,.40)` |
 | 番茄入口 | `#pomoBtn`：`right:16px; top:489px; 84×60; z-index:20`，🍅 34px，`grayscale(.15)` |
@@ -127,6 +130,10 @@ window.PM_HOOK = { qbind, pad, audioWake, ringPrepare, ringPlay, ringStop };
 ```
 番茄钟模块里用 `var H = window.PM_HOOK;` 取别名——**同一文件里另一段 `<script>` 的顶层函数不可见**。
 
+**时钟 / 日历**
+`tick`（每秒一次：日期、星期、周数、月份变化时才重排日历）`renderCalendar` `isoWeek`（ISO 8601 周数，日历页「第 N 周」同源）
+`tick()` 内三处忠实于「变了才写 DOM」：`dateLine` 每秒重拼公历字符串、`dayShown` 与 `weekShown` 两个变量分别守住星期与周数，`calKey` 守住整月重算。
+
 **初始化**：整个番茄模块包进 `pmInit()`，并
 ```js
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pmInit, false);
@@ -154,8 +161,8 @@ document.getElementById('pomoBtn').style.visibility = '';         // cdClose
 
 | 版本 | 体积 | 构成 | 首渲 |
 | --- | --- | --- | --- |
-| 真机 v22c（自用，含倒计时持久化） | 5,517,842 B | 代码 ~40KB + 七首 iOS 铃声 base64 | 32~38 秒 |
-| 仓库版（本仓库 `page/index.html`） | 242,206 B | 代码 ~40KB + 一段自制合成提示音 base64（187,792 B） | 约 8~10 秒 |
+| 真机 v23（自用，含倒计时持久化） | 5,515,727 B / md5 `921b5097…` | 代码 ~40KB + 七首 iOS 铃声 base64 | 32~38 秒 |
+| 仓库版（本仓库 `page/index.html`） | 240,070 B / md5 `d25b6c44…` | 代码 ~40KB + 一段自制合成提示音 base64（187,792 B） | 约 8~10 秒 |
 
 体积直接决定首渲时间，而首渲时间又决定"force-stop 之后要等多久再截图"：5.5MB 版本必须等 32 秒以上，240KB 版本 8~10 秒就够。旧的 v22b 在 1GB 机器上实测 kiosk `VmRSS 162 MB / VmHWM 173 MB`，系统 `MemAvailable 486,856 kB`——内存不是瓶颈，**首渲耗时才是**。
 

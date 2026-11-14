@@ -6,11 +6,17 @@
 
 | 项 | 值 |
 | --- | --- |
-| 体积 | 242,206 B（代码约 40KB + 一段自制合成提示音 base64 187,792 B） |
-| MD5 | `c67bbdedc9897bfec19e3ce945e3c5ec` |
+| 体积 | 240,070 B（代码约 40KB + 一段自制合成提示音 base64 187,792 B） |
+| MD5 | `d25b6c44645e4b1a0cba94be9a8615af` |
 | 音频 | 只有 1 段：`data:audio/wav;base64,…`，来自 `../assets/chime.wav` |
 | 商业素材 | 无（七首 iOS 铃声已全部剔除） |
-| 已验证 | 2026-11-09 推上 TG_S1 实机跑通：上屏、开面板、试听（`dumpsys media.audio_flinger` 有 1 条 active track）、番茄钟、返回 |
+| 已验证 | 2026-11-09 推上 TG_S1 实机跑通：上屏、开面板、试听（`dumpsys media.audio_flinger` 有 1 条 active track）、番茄钟、返回；2026-11-14 又按本版重跑一遍上屏与截图（顶行「星期六 / 2026年11月14日 / 第 46 周」、倒计时 `⌛ 01:36:28`） |
+
+## 当前界面（v23）
+
+- 顶行三段：左 `#dayLine`「星期六」`left:44px`、中 `#dateLine`「2026年11月14日」居中、右 `#weekLine`「第 46 周」`right:44px`，同为 26px `#8E8E8E`。**没有农历**：`LUNAR_INFO` 与 `solarToLunar` / `lunarText` 一整段已删。
+- 倒计时行 `.cd-status` 在 `top:456px`：空闲 19px 极暗；运行时 30px `#EDEDED`、字距 3px、前缀 `⌛`（`U+231B`），底下垫 320×46 / `rgba(255,255,255,.08)` 圆角条（`::before`，`z-index:-1`）。
+- 周数复用页面已有的 `isoWeek()`，与日历页「第 N 周」同口径；`tick()` 里只有值变了才写 DOM（`dayShown` / `weekShown` / `calKey` 三个守卫）。
 
 ## 硬约束（改之前先读）
 

@@ -2,7 +2,7 @@
 
 仓库地址：**https://github.com/negativesword/jingling-clock-modification**
 
-一台 2019 年的带屏智能音箱（天猫精灵 CC / TG_S1），不刷 GSI、不改内核、不换固件，只靠 **Magisk systemless 覆盖 + 上层应用替换**，改造成一块通电即亮的桌面信息屏：翻页钟、农历日历、倒计时、番茄钟，全部离线、全部本地、断电重启自动回到时钟页。
+一台 2019 年的带屏智能音箱（天猫精灵 CC / TG_S1），不刷 GSI、不改内核、不换固件，只靠 **Magisk systemless 覆盖 + 上层应用替换**，改造成一块通电即亮的桌面信息屏：翻页钟、日历、倒计时、番茄钟，全部离线、全部本地、断电重启自动回到时钟页。
 
 > 本文是这套改造的完整复盘：做成了什么、为什么这么做、每一个"点不动 / 不出声 / 不生效"的坑根因是什么、以及怎么把它复制到另一台同型号设备上。
 
@@ -12,16 +12,16 @@
 
 | 能力 | 说明 |
 | --- | --- |
-| 翻页钟 | 时分秒三张翻页板质感卡片，276px 数字，iPad 深色风；日期行带农历与星期 |
-| 日历 | 左右滑动切换第二页，月视图 + 农历 + 周数 |
-| 倒计时 | 底部一行淡字点开面板；三列滚轮自定义时长、5 个可长按改写的快捷档、最后一分钟转红数秒、到点响铃；**误触刷新/被杀重启后接着跑**（绝对结束时刻落 `localStorage`，键 `cdState_v1`） |
+| 翻页钟 | 时分秒三张翻页板质感卡片，276px 数字，iPad 深色风；顶行三段式：左「星期六」、中「2026年11月14日」、右「第 46 周」 |
+| 日历 | 左右滑动切换第二页，月视图 + 周数 |
+| 倒计时 | 点开面板：三列滚轮自定义时长、5 个可长按改写的快捷档、最后一分钟转红数秒、到点响铃；**误触刷新/被杀重启后接着跑**（绝对结束时刻落 `localStorage`，键 `cdState_v1`）。时钟页上运行时是 30px 白字 + ⌛ 前缀 + 8% 淡底条，空闲时只留一行极暗提示 |
 | 番茄钟 | 右下角一个 🍅 图标点开面板：专注 / 短休 / 长休三段、轮次番茄、自动接力、四种时长可调、到点响铃 |
 | 常驻性 | 断电冷启动 30 秒内自动进入页面；应用被杀 20 秒内拉起；HOME 键回不到原厂桌面 |
 | 离线 | 页面单文件自包含，音频 base64 内嵌，不联网、不依赖任何在线资源 |
 
 硬件底子：MT8167S / 7 寸 1024×600 / **1GB RAM + 512MB zram** / Android 8.1 (sdk 27) / 纯 armeabi-v7a / WebView 是 **Chrome 61 (61.0.3163.98)**。
 
-下面全部是实机截图（1024×600，2026-11-09），页面用的是本仓库的 `page/index.html`：
+下面全部是实机截图（1024×600，时钟页于 2026-11-14 重拍），页面用的是本仓库的 `page/index.html`：
 
 | 时钟页（开机默认） | 日历页（左滑进入） |
 | --- | --- |
@@ -31,7 +31,7 @@
 | --- | --- | --- |
 | ![倒计时](docs/images/countdown-panel.png) | ![番茄钟](docs/images/pomodoro-focus.png) | ![番茄钟设置](docs/images/pomodoro-cfg.png) |
 
-> 这五张图是用**本仓库的 `page/index.html`**推上实机后拍的（拍摄时为 240,939 B；之后补了倒计时持久化，现为 242,206 B / md5 `c67bbded…`，界面没有变化）。验收链路：上屏 → 开倒计时面板 → 点「试听」（`dumpsys media.audio_flinger` 出现 1 条 active track，证明内嵌的合成提示音确实在响）→ 进番茄钟 → 设置页 → 返回时钟页，全部正常；验收完已把设备还原成它原来那版。
+> 这五张图是用**本仓库的 `page/index.html`**推上实机后拍的（时钟页于 2026-11-14 按当前 240,070 B / md5 `d25b6c44…` 的页面重拍，其余四张沿用 2026-11-09 首次验收）。验收链路：上屏 → 开倒计时面板 → 点「试听」（`dumpsys media.audio_flinger` 出现 1 条 active track，证明内嵌的合成提示音确实在响）→ 进番茄钟 → 设置页 → 返回时钟页，全部正常；验收完已把设备还原成它原来那版。
 >
 > 标语位置的公司名在发布版里换成了「×××」（页面 `.caption` 与截图是同一处改动，截图是匿名化后的页面重新上机拍的）。想要显示自己的名字，改 `page/index.html` 里 `<div class="caption">` 那行即可——注意它会改变文件体积与 md5。
 
@@ -60,19 +60,20 @@
 ```
 ┌─────────────────────────────── 设备（Android 8.1, 1GB RAM） ───────────────────────────────┐
 │                                                                                            │
-│  ① Magisk systemless 模块 infoscreen                                                        │
-│     ├─ system/app/WebviewKiosk/WebviewKiosk.apk   ← 全屏 WebView 容器（第三方，不入库）        │
-│     ├─ system/etc/clock.html   ← bind mount 到 /system/etc/clock.html（改页面免重启）          │
-│     └─ service.sh              ← 看门狗：20s 判活、60s 判前台                                 │
+│  ① Magisk systemless 模块 infoscreen                                                       │
+│     ├─ system/app/WebviewKiosk/WebviewKiosk.apk   ← 全屏 WebView 容器（第三方，不入库）    │
+│     ├─ system/etc/clock.html   ← bind mount 到 /system/etc/clock.html（改页面免重启）      │
+│     └─ service.sh              ← 看门狗：20s 判活、60s 判前台                              │
 │                                                                                            │
-│  ② 系统层：package-restrictions.xml 里组件级禁用两个原厂 HOME Activity                          │
-│     children/…AdultHomeActivity、smartapp/…BootHomeActivity → HOME 只剩 kiosk                 │
-│     （整包不能隐藏：SettingsProvider 依赖 smartapp 的 DataCenterProvider，会连锁重启）           │
+│  ② 系统层：原厂 HOME 组件级禁用 + 精灵系应用 0 字节遮蔽                                    │
+│     children/…AdultHomeActivity、smartapp/…BootHomeActivity → HOME 只剩 kiosk              │
+│     smartapp / ags / GenieRTC 遮蔽后缺 6 个 provider authority，由自建 stub APK 补齐       │
+│     （com.zhu.geniestub，8.6 KB，全部返回空 MatrixCursor）→ SystemUI 不再循环崩溃          │
 │                                                                                            │
-│  ③ debloat 模块：13 个 0 字节占位 APK，压掉视频/相册/浏览器/OTA 等预装                           │
-│     语音四件套（唤醒/ASR/TTS/NLU）保留                                                        │
+│  ③ debloat 模块：16 个 0 字节占位 APK，压掉视频/相册/浏览器/OTA/精灵系等预装               │
+│     语音四件套（唤醒/ASR/TTS/NLU）保留；另有 10 个包 suspend                               │
 │                                                                                            │
-│  ④ uk.nktnet.webviewkiosk：file:///system/etc/clock.html，沉浸全屏、常亮、唤醒刷新、锁定启动      │
+│  ④ uk.nktnet.webviewkiosk：file:///system/etc/clock.html，沉浸全屏、常亮、唤醒刷新、锁定启动│
 │                                                                                            │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -95,8 +96,9 @@ tg-s1-infoscreen/
 │  ├─ DEPLOY.md           部署手册（备份 → Magisk → kiosk → HOME 接管 → 精简 → 验收）
 │  ├─ PITFALLS.md         踩坑清单：现象 / 根因 / 修法（按 A~F 分组）
 │  ├─ PAGE-SPEC.md        页面规格：版式尺寸、坐标、颜色、函数、localStorage 键
-│  ├─ VERSION_LOG.md      v1 → v22c 演进史与每次取舍的理由
-│  └─ images/             实机截图（本 README 里引用的那六张）
+│  ├─ VERSION_LOG.md      v1 → v23 演进史与每次取舍的理由
+│  ├─ SYSTEM-SLIMMING.md  系统层瘦身：遮蔽清单、provider stub、suspend、回滚
+│  └─ images/             实机截图（本 README 里引用的那五张）
 ├─ page/
 │  ├─ index.html          页面本体（开箱即用，已内置一段自制合成提示音）
 │  └─ README.md           页面说明：怎么改、怎么推、铃声音频怎么自带
@@ -125,7 +127,7 @@ tg-s1-infoscreen/
 3. **建 systemless 模块** `infoscreen`：放 kiosk APK + `clock.html` + `service.sh`，重启一次生效。
 4. **禁原厂 HOME**：`package-restrictions.xml` 的 `disabled-components` 里加两个组件，`chown system:system`、`chmod 660`、`chcon u:o:system_data_file:s0`，然后 `kill $(pidof system_server)`（**不要正常关机**）。
 5. **kiosk 设首页**：设置 UI 里把 URL 改成 `file:///system/etc/clock.html`，必须用 "Use the current URL" 按钮落盘；开沉浸全屏 / 常亮 / 唤醒刷新 / 锁定启动。
-6. **精简**：debloat 模块放 13 个 0 字节占位；**语音四件套保留**；`smartapp` 不能整包隐藏。
+6. **精简**：debloat 模块放 0 字节占位（本机 16 个，含 `smartapp` / `AliGenieService` / `GenieRTC`）；**语音四件套保留**。整包遮蔽会让依赖其 provider 的系统进程崩，必须先装自建 stub APK 补 authority，见 `docs/SYSTEM-SLIMMING.md`。
 7. **验收**：物理断电冷启动三次，确认每次都自动进时钟页；`cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME` 应只剩 kiosk 与 FallbackHome。
 
 日常改页面（**不需要重启**）：
@@ -159,7 +161,7 @@ $b64 | & adb -s <device-ip>:5555 shell "su -c 'base64 -d > /data/local/tmp/repo.
 
 完整版在 `docs/PITFALLS.md`，这里是复用价值最高的十条：
 
-1. **先确认能不能接管 HOME，再谈做信息屏。** 厂商定制机很可能有两个 HOME Activity（启动页 + 主桌面），要组件级禁用而不是整包禁用；整包隐藏会把 `SettingsProvider` 带崩，被 MTK AEE 升级成重启。
+1. **先确认能不能接管 HOME，再谈做信息屏。** 厂商定制机很可能有两个 HOME Activity（启动页 + 主桌面），要组件级禁用而不是整包禁用；整包隐藏会把 `SettingsProvider` 带崩，被 MTK AEE 升级成重启——要整包拿掉，得先给缺失的 provider 做一个返回空游标的 stub。
 2. **只读分区一律不碰，全部走 systemless。** "改一个字节就 EIO 卡 logo"不是传说，这台机器上一次就够。
 3. **WebView 版本决定设计法。** Chrome 61 = 没有 flex `gap`、`transform` 要 `-webkit-` 前缀、`<audio>` 整条通道作废、长按 500ms 会弹系统选字菜单、多段 `<script>` 之间全局函数互相看不见。先把这些查清，再动手画界面。
 4. **"点不动"九成是命中测试，不是位置。** 空心 SVG 只有描边像素可点（`pointer-events:visiblePainted`），必须让父容器接管；全宽 fixed 覆盖层会吃掉底部整条带的点击。
@@ -188,6 +190,7 @@ $b64 | & adb -s <device-ip>:5555 shell "su -c 'base64 -d > /data/local/tmp/repo.
 | v19–v20 | 五格 + 长按修复 | 双路判定替代单押 touchend |
 | v21 | 番茄钟 | 主界面只放一个 🍅，功能全进面板 |
 | v22 | 番茄钟配色 + 放大 | 取 pomofocus 三色；白底主按钮字色跟页面走 |
+| v23 | 顶行三段式 + 倒计时醒目 + 去农历 | 左星期 / 中公历 / 右第几周；倒计时运行时 30px 白字 + ⌛ + 8% 淡底条；删掉整套农历换算 |
 
 细节与理由见 `docs/VERSION_LOG.md`。
 

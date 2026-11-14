@@ -99,7 +99,7 @@ adb shell su -c "kill \$(pidof system_server)"
 adb shell su -c "cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME"
 ```
 
-**绝对不要**整包隐藏 `com.alibaba.ailabs.genie.smartapp`（见 A4）。
+**整包遮蔽可以做，但必须连带装 provider stub**：`smartapp` 一消失，`SettingsProvider` / `SystemUI` 会因查询不到它的 6 个 `ContentProvider` authority 而崩溃-退避、最终整机重启。做法是先装自建桩 APK `com.zhu.geniestub`（8.6 KB，全部返回空游标），再遮蔽 `smartapp` / `AliGenieService` / `GenieRTC`。完整步骤与回滚见 [`SYSTEM-SLIMMING.md`](SYSTEM-SLIMMING.md)。
 
 ---
 
@@ -126,11 +126,15 @@ adb shell su -c "cmd package query-activities --brief -a android.intent.action.M
 
 ## 6. 精简（debloat 模块）
 
-新建 `/data/adb/modules/debloat/`，在 `system/app/<原目录名>/` 下放 **0 字节同名 apk** 占位覆盖。本机已压掉 13 个：
+新建 `/data/adb/modules/debloat/`，在 `system/app/<原目录名>/` 下放 **0 字节同名 apk（644）** 占位覆盖。本机已压掉 16 个：
 
-`AMPE`、`AliVideoPlayer`、`GenieAlbums`、`GenieBrowser`、`GenieIoT`、`GenieMonitor`、`GenieNetTest`、`GenieScreensaver`、`Osupdate`、`xiaoxiaoyouku`、`GenieLinkCamera`、`GenieAicare`、`HTMLOpen`
+`smartapp`、`AliGenieService`、`GenieRTC`、`AMPE`、`AliVideoPlayer`、`GenieAlbums`、`GenieBrowser`、`GenieIoT`、`GenieMonitor`、`GenieNetTest`、`GenieScreensaver`、`Osupdate`、`xiaoxiaoyouku`、`GenieLinkCamera`、`GenieAicare`、`HTMLOpen`
 
-**必须保留**：天猫精灵语音四件套（唤醒 / ASR / TTS / NLU），以及 `com.alibaba.ailabs.genie.smartapp`。
+**顺序不能反**：先在第 4 节之后装好 provider stub（`com.zhu.geniestub`），再遮蔽 `smartapp` / `AliGenieService` / `GenieRTC`，否则 SystemUI 会进崩溃-退避链。
+
+**必须保留**：天猫精灵语音四件套（唤醒 / ASR / TTS / NLU）——它们不在精简范围内。
+
+另有一批不便遮蔽、只做 `cmd package suspend` 的包（本机 10 个生效），清单与注意事项见 [`SYSTEM-SLIMMING.md`](SYSTEM-SLIMMING.md) 第 5 节。
 **可删的临时物**：`/sdcard` 下的 dump 文本、截图；app 私有目录里的临时音频目录。
 
 删之前先 `ls` 确认路径，逐个删、不要用通配批量删。
