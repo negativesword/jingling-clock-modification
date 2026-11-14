@@ -35,6 +35,18 @@
     font-size:26px;font-weight:400;color:#8E8E8E;
     letter-spacing:1px;
   }
+  /* 与日期同一行的右端：第几周 */
+  .week-line{
+    position:absolute;top:74px;right:44px;
+    font-size:26px;font-weight:400;color:#8E8E8E;
+    letter-spacing:1px;
+  }
+  /* 与日期同一行的左端：星期 */
+  .day-line{
+    position:absolute;top:74px;left:44px;
+    font-size:26px;font-weight:400;color:#8E8E8E;
+    letter-spacing:1px;
+  }
   .tiles{
     position:absolute;top:171px;left:74px;right:74px;
     height:258px;
@@ -130,14 +142,28 @@
 
   /* ===== 倒计时：时钟页底部一行（默认很淡，点了才进面板） ===== */
   .cd-status{
-    position:absolute;top:462px;left:0;right:0;height:44px;
+    position:absolute;top:456px;left:0;right:0;height:44px;
     line-height:44px;text-align:center;
     font-family:"sans-serif-condensed",Roboto,sans-serif;
     font-size:19px;font-weight:400;color:#4C4C4C;
     letter-spacing:2px;
     z-index:6;
   }
-  .cd-status.run{color:#8E8E8E;}
+  /* 运行中：提亮到 30px 白字，并在文字后面垫一条极淡的圆角底条，让它在黑底上浮起来 */
+  .cd-status.run{
+    color:#EDEDED;font-size:30px;font-weight:600;letter-spacing:3px;
+    font-variant-numeric:tabular-nums;
+  }
+  .cd-status.run::before,
+  .cd-status.final10::before,
+  .cd-status.done::before{
+    content:";
+    position:absolute;left:50%;top:50%;
+    width:320px;height:46px;margin-left:-160px;margin-top:-23px;
+    background:rgba(255,255,255,.08);
+    border-radius:10px;
+    z-index:-1;
+  }
   .cd-status.final{font-size:32px;color:#EDEDED;font-weight:600;letter-spacing:1px;}
   .cd-status.final10{font-size:32px;color:#FF453A;font-weight:700;letter-spacing:1px;}
   .cd-status.done{color:#FF453A;font-weight:700;font-size:26px;}
@@ -381,7 +407,9 @@
 
     <!-- ===== 视图：翻页钟 ===== -->
     <section class="page">
-      <div class="date-line" id="dateLine">2026年11月8日 九月三十 周日</div>
+      <div class="day-line" id="dayLine"></div>
+      <div class="date-line" id="dateLine">2026年11月8日</div>
+      <div class="week-line" id="weekLine"></div>
       <div class="tiles">
         <div class="tile"><div class="digits" id="dH">19</div><div class="shade"></div><div class="seam"></div></div>
         <div class="tile"><div class="digits" id="dM">05</div><div class="shade"></div><div class="seam"></div></div>
@@ -455,11 +483,13 @@
 
 <script>
 (function(){
-  var WEEK_CN = ['周日','周一','周二','周三','周四','周五','周六'];
+  var WEEK_CN = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
   var track = document.getElementById('track');
   var dots = document.getElementById('dots').getElementsByTagName('i');
   var idx = 0;
   var calKey = '';
+  var weekShown = -1;
+  var dayShown = '';
 
   function pad(n){ return n < 10 ? '0' + n : '' + n; }
 
@@ -482,45 +512,6 @@
     }
   }
 
-  /* ---- 农历（1900-2099，表由 lunardate 逐日换算生成并交叉校验） ---- */
-  var LUNAR_INFO = [0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,0x06ca0,0x0b550,0x15355,0x04da0,0x0a5d0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b5a0,0x195a6,0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06aa0,0x1a6c4,0x0aae0,0x092e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x00032];
-  var LUNAR_MONTH = ['正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','冬月','腊月'];
-  var LUNAR_DAY = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
-                   '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
-                   '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
-
-  function lLeapMonth(y){ return LUNAR_INFO[y - 1900] & 0xf; }
-  function lLeapDays(y){ if (!lLeapMonth(y)) { return 0; } return (LUNAR_INFO[y - 1900] & 0x10000) ? 30 : 29; }
-  function lMonthDays(y, m){ return (LUNAR_INFO[y - 1900] & (0x10000 >> m)) ? 30 : 29; }
-  function lYearDays(y){
-    var s = 348, i = 0x8000;
-    while (i > 0x8) { if (LUNAR_INFO[y - 1900] & i) { s++; } i >>= 1; }
-    return s + lLeapDays(y);
-  }
-  function solarToLunar(y, m, d){
-    var offset = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1900, 0, 31)) / 86400000);
-    var ly = 1900;
-    while (ly <= 2099 && offset >= lYearDays(ly)) { offset -= lYearDays(ly); ly++; }
-    var lm = 1, isleap = false;
-    while (lm <= 12) {
-      var md = lMonthDays(ly, lm);
-      if (offset < md) { break; }
-      offset -= md;
-      if (lLeapMonth(ly) === lm) {
-        var ld = lLeapDays(ly);
-        if (offset < ld) { isleap = true; break; }
-        offset -= ld;
-      }
-      lm++;
-    }
-    return { y: ly, m: lm, d: offset + 1, leap: isleap };
-  }
-  function lunarText(y, m, d){
-    if (y < 1900 || y > 2099) { return ''; }
-    var l = solarToLunar(y, m, d);
-    return (l.leap ? '闰' : '') + LUNAR_MONTH[l.m - 1] + LUNAR_DAY[l.d - 1];
-  }
-
   /* ---- 时钟 ---- */
   function tick(){
     var now = new Date();
@@ -529,7 +520,17 @@
     document.getElementById('dM').textContent = pad(now.getMinutes());
     document.getElementById('dS').textContent = pad(now.getSeconds());
     document.getElementById('dateLine').textContent =
-      y + '年' + mo + '月' + da + '日 ' + lunarText(y, mo, da) + ' ' + WEEK_CN[now.getDay()];
+      y + '年' + mo + '月' + da + '日';
+    var wd = WEEK_CN[now.getDay()];
+    if (wd !== dayShown) {
+      dayShown = wd;
+      document.getElementById('dayLine').textContent = wd;
+    }
+    var wk = isoWeek(now);
+    if (wk !== weekShown) {
+      weekShown = wk;
+      document.getElementById('weekLine').textContent = '第 ' + wk + ' 周';
+    }
     if (calKey !== y + '-' + mo) { renderCalendar(now); }
 
     /* 倒计时：每秒刷新；到点转成“时间到” */
@@ -652,10 +653,10 @@
     if (cdRunning) {
       if (rem < 60) {
         st.className = 'cd-status' + (rem <= 10 ? ' final10' : ' final');
-        st.textContent = '倒计时 ' + cdHMS(Math.ceil(rem));
+        st.textContent = '\u231B ' + cdHMS(Math.ceil(rem));
       } else {
         st.className = 'cd-status run';
-        st.textContent = '倒计时 ' + cdHMS(Math.ceil(rem));
+        st.textContent = '\u231B ' + cdHMS(Math.ceil(rem));
       }
     } else if (cdDone) {
       st.className = 'cd-status done'; st.textContent = '时间到';
