@@ -67,6 +67,28 @@ adb shell su -c "base64 <path>"
 **根因**：suspend 只拦"自己想起床"的组件；输入法是系统里唯一注册的 IME，`InputMethodManager` 会把它的进程直接拉起。
 **结论**：suspend 对普通应用有效、对系统必需角色无效。想省这 70 MB 只能换/删 IME，本机没做（信息屏用不到键盘，但也不想为一个用不到的功能改动输入法框架）。
 
+### A8. 连跑一天以上整机变卡：zram 换页抖动（设备层）
+
+**现象**（真机，连续开机 52.4 小时）：整机明显卡顿。`dumpsys cpuinfo` 显示 kiosk 占 **99% CPU，其中用户态只有 2.9%、内核态 96%**，累计 **major page fault 596 万次**；`kswapd0` 另占 46%。内存侧 `MemAvailable 306,312 kB`、`SwapFree` 只剩 **73,224 / 502,968 kB**（zram 已用约 85%），kiosk RSS 已涨到 **364,024 kB**。
+
+**根因链**：WebView 堆在长跑中缓慢爬升（实测 0.3 h 时 174 MB → 7.2 h 317 MB → 52 h 364 MB，之后是 300–360 MB 的 GC 锯齿平台）→ 1 GB 内存装不下 → 内核把它的活页换进 zram → 页面每秒刷新要碰这些页 → 每次碰都要从 zram 解压（major fault）→ 运算全在内核态 → 4 核被 kiosk + kswapd 吃满 → 整机卡。**RSS 本身没到 OOM 线，卡在"换页"这一步**。
+
+**判读注意（重要）**：这台机器的 `/proc/loadavg` 长期停在 **7.2–8.5**，因为它有 7 个常驻 D 态内核线程（`GCPU`、`hang_detect`、`entropy_thread`、`bat_thread_kthread`、`ion_history`、`fuse_log`、`display_esd_che`）。**loadavg 在这个设备上不能当卡顿指标**，要看 `dumpsys cpuinfo` 的 user/kernel 占比和 major fault 计数。整机 `idle` 也可以直接算 `/proc/stat` 两帧差。
+
+**处置**：看门狗 `service.sh` 里加"每日凌晨 3–5 点重载一次"（距上次 ≥ 6 小时才做，阈值 `MIN_AGE_H`），另设 30 小时兜底 `HARD_H`。重载 = `am force-stop` + 重新 `am start`，期间页面空白约 30 秒（5.5 MB 母版），所以只放凌晨；连续错过窗口才允许白天做。
+
+**实测效果**（同一次处理，force-stop 前后 40 秒）：
+
+| 指标 | 处理前 | 处理后 |
+| --- | --- | --- |
+| kiosk RSS | 364,024 kB | 157,704 kB |
+| MemAvailable | 292,592 kB | 614,144 kB |
+| zram 可换出 | 86,816 kB | 450,808 kB |
+| kiosk CPU | 99%（内核态 96%） | 23%（用户态 19%） |
+| 整机 CPU 空闲率 | — | 81.8% |
+
+**flush 后的内存构成**（`dumpsys meminfo`，用来判断增长部位）：Java Heap 仅 4.5 MB、Native 10 MB、Code 49.5 MB、Graphics 19 MB、Private Other 48 MB、**Unknown 41.5 MB**。增长几乎全部落在 Chromium 的原生分配器与图形缓存（Unknown / Private Other / Graphics），**不是 JS 泄漏**——所以改页面代码省不下来，只能定期重载。
+
 ---
 
 ## B. WebView（Chrome 61）能力边界
