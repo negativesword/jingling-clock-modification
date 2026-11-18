@@ -10,7 +10,7 @@
 
 | 项 | 状态 | 位置 |
 | --- | --- | --- |
-| 页面本体 | ✅ 已就位，**已在实机跑通** | `page/index.html`（240,070 B / md5 `d25b6c44…`，1 段自制合成提示音） |
+| 页面本体 | ✅ 已就位，**已在实机跑通** | `page/index.html`（53,495 B / md5 `5697d77e…`，音频在 `page/rings/1.js`） |
 | 提示音源文件 | ✅ | `assets/chime.wav`（140,844 B，纯正弦合成，MIT 可分发） |
 | 合成脚本 | ✅ | `tools/make_chime.py` |
 | 截图 5 张 | ✅ 实机拍，已改名落盘 | `docs/images/`（main-clock / calendar / countdown-panel / pomodoro-focus / pomodoro-cfg） |
@@ -36,6 +36,8 @@ python tools/pack_ringtones.py --page page/index.html --src assets --names 提�
 结果：7 段 `data:audio/mpeg` → 1 段 `data:audio/wav`；体积 5,517,842 B → 242,233 B；`RINGS` 的 6 处引用全部保留；`node --check` 校验脚本块 `1 block / 219,467 chars / 0 失败`。
 
 之后又把时钟页标语位置的公司名换成「×××」（11 个汉字 → 3 个字符，少 27 B），体积 → 242,206 B / md5 `c67bbded…`——这就是 `v1.0.0` 发布出去的那版。
+
+**2026-11-18（epo-4）**：铃声从页面里搬出来，改成按需加载的 page/rings/1.js。页面 240,070 B → **53,495 B / md5 5697d77e…**，冷启白屏 8~10 s → 约 3 s（真机 v24 三次实测 2.8/3.0/2.9 s）。音频仍是 base64 + WebAudio 解码，能力没有减少；加载失败时 larmStart 的蜂鸣兜底照旧生效。page/rings/ 里只放自制素材。
 
 **2026-11-14（`repo-3`）**：页面又跟了一批改动——删掉整套农历换算、顶行改三段式（左星期 / 中公历 / 右第几周）、倒计时运行态提亮到 30px 白字 + `⌛` + 8% 淡底条，体积降到 **240,070 B / md5 `d25b6c44…`**，`docs/images/main-clock.png` 也按这版在实机重拍（仍是匿名「×××」，不是后期涂改）。求证链路：本仓库这版页面推上设备 → `force-stop` → 18 秒后截图 → 确认顶行是「星期六 / 2026年11月14日 / 第 46 周」、倒计时行是 `⌛ 01:36:28`。
 
@@ -77,7 +79,8 @@ docs/PAGE-SPEC.md
 docs/VERSION_LOG.md
 docs/SYSTEM-SLIMMING.md       ← 系统层瘦身：遮蔽清单、provider stub、suspend、回滚
 docs/images/*.png            ← 5 张实机截图（README 已引用）
-page/index.html              ← 页面本体（240,070 B，含 1 段自制合成提示音）
+page/index.html              ← 页面本体（53,495 B，不含音频）
+page/rings/1.js              ← 提示音（187,876 B，按需加载）
 page/README.md
 assets/chime.wav             ← 自制提示音源文件（.gitignore 里做了例外）
 module/README.md
@@ -99,7 +102,7 @@ tools/deploy-page.ps1
 
 ### 关于页面文件的三条硬要求（现状已全部满足）
 
-1. **页面里只能有自制音频**。判据：`data:audio/mpeg;base64` 计数为 `0`、`data:audio/wav;base64` 计数为 `1`；体积 240,070 B 而不是 5.5 MB。
+1. **页面本体里不得有任何音频**。判据：`page/index.html` 里 `data:audio` 计数为 `0`；音频一律放 `page/rings/*.js` 且只许自制素材。
 2. **即使一段音频都没有，到点也必须响**：`alarmStart()` 与 `pmChime()` 都在 1.5 秒内检查 `ringFail || !ringSrc`，命中就回落 `beepLoop()`（WebAudio 直接振荡，不依赖任何解码）。
 3. **`assets/chime.wav` 不能被 `.gitignore` 的 `*.wav` 吃掉**——仓库里已经写了 `!assets/chime.wav` 例外，克隆下来用 `git check-ignore -v assets/chime.wav` 验证一下。
 
@@ -124,7 +127,8 @@ tools/deploy-page.ps1
 
 # ② 体积与指纹
 Get-ChildItem .\page\index.html | Select-Object Name, Length
-Get-FileHash .\page\index.html -Algorithm MD5        # 期望 d25b6c44645e4b1a0cba94be9a8615af
+Get-FileHash .\page\index.html -Algorithm MD5        # 期望 5697d77e5589463a0b4daee4826bee7b
+Get-FileHash .\page\rings\1.js -Algorithm MD5        # 期望 81252d6f0e15f825baaa3e639019f754
 
 # ③ 有没有把本机绝对路径 / 私网 IP 带进文档
 Select-String -Path .\README.md, .\docs\*.md, .\page\README.md, .\module\README.md -Pattern 'ZHU HONG|C:\\Users|192\.168\.' | Select-Object Path, LineNumber
@@ -146,7 +150,7 @@ Get-ChildItem .\docs\images | Select-Object Name, Length
 本项实测结果（数字为 2026-11-14 重跑）：
 
 - ① `data:audio/mpeg` = **0**，`data:audio/wav` = **1**
-- ② 240,070 B，MD5 = `D25B6C44645E4B1A0CBA94BE9A8615AF`（小写即 `d25b6c44…`）
+- ② 53,495 B，MD5 = `5697D77E5589463A0B4DAEE4826BEE7B`（小写即 `5697d77e…`）；`page/rings/1.js` 187,876 B / `81252d6f…`
 - ③ 只有两处命中，都不是泄漏：`PUBLISH.md` 自己那行自检命令、`docs/DEPLOY.md` 里的 `192.168.x.x`（本来就脱敏成 x）
 - ④ `lpDbg` = 0、`window.onerror` = 0；**不要用 `Dbg` 这个宽词去搜**，它会在 base64 里撞出假的命中
 - ⑤ `node --check` 通过（1 个 script 块，217,726 chars）
@@ -178,7 +182,7 @@ Expand-Archive MinGit.zip 'C:\Users\<you>\AppData\Local\git-mingit' -Force
 Windows 上 git 默认 `core.autocrlf=true`，会在入库时把 LF 改成 CRLF。这套仓库里两样东西会被它直接搞坏：
 
 - `module/service.sh` 变成 CRLF → Android 上 `sh` 解释器读不了（`bad interpreter` / 直接不执行）；
-- `page/index.html` 字节数变化 → 文档里公示的 md5 `d25b6c44…` 当场失效，读者对不上账。
+- `page/index.html` 或 `page/rings/*.js` 字节数变化 → 文档里公示的 md5 `5697d77e…` 当场失效，读者对不上账。
 
 所以建仓第一步就写 `.gitattributes` 并设 `core.autocrlf=false`：
 
@@ -193,7 +197,7 @@ git config core.autocrlf false
 git config core.eol lf
 ```
 
-验证办法：`git ls-tree -r -l HEAD` 里三个关键文件的 blob 体积必须与工作区一致——`page/index.html` 240,070 / `assets/chime.wav` 140,844 / `module/service.sh` 1,462。任何一个不等，就是行尾或过滤器动过手脚。
+验证办法：`git ls-tree -r -l HEAD` 里关键文件的 blob 体积必须与工作区一致——`page/index.html` 53,495 / `page/rings/1.js` 187,876 / `assets/chime.wav` 140,844 / `module/service.sh` 1,462。任何一个不等，就是行尾或过滤器动过手脚。
 
 ### 首次提交与推送（本机已执行完毕）
 

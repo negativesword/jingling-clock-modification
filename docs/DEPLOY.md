@@ -164,7 +164,7 @@ adb shell su -c "cmd package query-activities --brief -a android.intent.action.M
         → 先落 /data/local/tmp，md5 对账通过才 cp 到模块内 clock.html（立即生效）
         → 同时覆盖 /sdcard/clock/index.html 留底
 4) 重载：su -c 'am force-stop uk.nktnet.webviewkiosk' + am start
-5) 等首渲再 screencap：240KB 页面 8~10s；5.5MB 页面 32~38s（su 的 Toast 会遮画面，必要时补拍）
+5) 等首渲再 screencap：53KB 页面（v24）约 3s；240KB 页面 8~10s；5.5MB 页面 32~38s（su 的 Toast 会遮画面，必要时补拍）
 6) 逐项点测：把面板、按钮、长按、滑动都过一遍
 ```
 
@@ -210,3 +210,22 @@ adb shell su -c "base64 '/data/data/uk.nktnet.webviewkiosk/app_webview/Local Sto
 | `adb push` 报 `protocol fault` | 这是本机常态，不是偶发；改用 base64 + adb stdin（E6） |
 
 **回滚手段**：Magisk 里禁用/删除模块 → 重启；或恢复 boot.img + 恢复 `package-restrictions.xml` 备份。
+
+### 8.1 音频外置版（v24）多部署一个目录
+
+页面从 v24 起不再内嵌音频，`index.html` 旁边要有一个 `rings/`：
+
+```bash
+# ① 模块目录（重启后才出现在 /system/etc/rings，标签同页面）
+su -c 'mkdir -p /data/adb/modules/infoscreen/system/etc/rings'
+
+# ② App 自有外部目录（免存储权限，重启前也能用；kiosk 未授予 READ_EXTERNAL_STORAGE）
+su -c 'mkdir -p /sdcard/Android/data/uk.nktnet.webviewkiosk/files/rings'
+
+# ③ 两边都要 chmod 644；不要对模块内文件跑 restorecon（见 E7）
+su -c 'chmod 644 /data/adb/modules/infoscreen/system/etc/rings/*.js /sdcard/Android/data/uk.nktnet.webviewkiosk/files/rings/*.js'
+```
+
+设备侧切分（避免再传 5 MB）：见 `PITFALLS.md` G3 的 `cut -d"'" -f4` 写法——凡是要把 1 MB 以上的 base64 塞进 shell 变量或 `printf` 参数，都会被 argv 上限打回来。
+
+页面加载顺序是"先同目录 `rings/N.js`，失败再找自有外部目录"；两条都不通时 `ringFail` 触发 1.5 s 蜂鸣兜底，闹钟不会哑。

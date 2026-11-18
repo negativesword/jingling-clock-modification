@@ -327,3 +327,46 @@ su -c 'ls -lZ /data/adb/modules/infoscreen/system/etc/clock.html'   # 与 /syste
 - 收尾必须清零：删 `xxxDbg()`、删 `window.onerror` 钩子、删日志键。验证方式：`lpDbg` 与 `window.onerror` 都应为 0 处。
 - **别用 `Dbg` 这个宽词去搜**：base64 音频串里可能正好出现 `Dbg` 三个字符，会给你一个假的"还有残留"。用带上下文的窄词（`lpDbg`、`pmDbg(`）才有意义。
 - 每次改页面先复制到 `_backup/index-vNN-主题.html`，命名带主题，方便一屏找回"上次那个能用的版本"。
+
+---
+
+## G. 页面体积与铃声外置（v24）
+
+### G1. 5.46 MB 内联 base64 = 每次重载 32–38 s
+
+**现象**：`clock.html` 5,515,727 B，其中 7 段 `data:audio/mpeg;base64` 合计 **5,463,400 字符（99%）**，正文只有约 50 KB。`am force-stop` 到画面出现要 32–38 s，白天重载等于半小时白屏，所以只能一天重载一次——而内存增速 21–24 MB/h，一天一次根本撑不到傍晚。
+
+**改法**：`RINGS` 只留名字（`{n:'倒影', d:''}`），音频切成 `rings/1.js … 7.js`，每个文件是 `window.RING_DATA=window.RING_DATA||{};window.RING_DATA[n-1]="data:audio/mpeg;base64,…";`。页面新增 `ringLoad(idx, cb)`：首次用到某铃声时才插 `<script>`，把 `window.RING_DATA[idx]` 收进 `RINGS[idx].d`，再走原 `atob → decodeAudioData`。
+
+**结果（TG_S1，三次复测）**：页面 53,405 B，`am force-stop` → 画面刷新 **2.8 / 3.0 / 2.9 s**；试听时 `dumpsys media.audio_flinger` 的 track `Written` 由 84,224 帧涨到 150,784 帧，确认在播。
+
+### G2. WebView 到底能读哪里（一条条试出来的）
+
+| 路径 | 结果 | 原因 |
+| --- | --- | --- |
+| 同目录 `rings/N.js`（设备上是 `/system/etc/rings/`） | 重启后可用 | 模块新增文件要重启才挂载 |
+| `file:///sdcard/Android/data/<pkg>/files/rings/N.js` | **可用（实测成功）** | App 自有外部目录，免存储权限 |
+| `/sdcard/clock/rings/N.js` | 不可用 | kiosk 未授予 `READ_EXTERNAL_STORAGE`：`dumpsys package` 里只在 `requested permissions`，不在 `install/granted` |
+
+所以"WebView 读不到 file://"这条旧结论要分情况：**XHR/fetch 读二进制是读不到的（铃声必须走 base64）**，但 `<script src>` 这种脚本加载可以，只要路径落在同目录或 App 自有外部目录。页面里因此写成两条候选路径，先同目录、再自有目录。
+
+### G3. 设备侧切 base64：`printf` 会撞参数上限
+
+**现象**：用 `printf 'prefix%s suffix' "$d"` 写 1.6 MB 的 base64，toybox 直接报 `Argument list too long`，7 个文件全是 62 字节的空壳。
+**改法**：`echo` 是 shell 内建、不经过 argv 限制，配合 `cut` 取字段即可：
+
+```sh
+d=$(echo "$line" | cut -d"'" -f4)          # 第 4 个单引号分隔段 = data:audio/mpeg;base64,…
+echo "window.RING_DATA=window.RING_DATA||{};window.RING_DATA[$i]=\"$d\";" > "$OUT/$i.js"
+```
+
+### G4. 替换 `];` 时留了两份闭合括号 → 整页不渲染，屏幕停在旧帧
+
+**现象**：改完页面 `am force-stop` 后 `screencap` 连续两张 md5 完全相同，画面还是 11-08 的旧帧。这很容易被误读成"WebView 卡死 / 屏幕没刷新"，实际是**脚本语法错误导致页面根本没画出来**，SurfaceFlinger 一直显示上一帧。
+
+**定位**：抽出最后一个 `<script>` 的内容跑 `node --check`，报 `Unexpected token ']'` —— 新块结尾的 `  ];` 和原块留下的 `  ];` 撞在一起变成 `];  ];`。
+
+**规则**：
+- 用 `IndexOf` 定位原块的 `  ];` 时，替换串已经自带 `];`，取后续内容必须从 `i2 + 4` 起跳，不能从 `i2` 起跳。
+- 拼接完先 `node --check` 再上设备；屏幕"冻结"时第一件事是查语法，不是重启。
+- `[regex]::Replace($text, {param($m) ...}, 1)` 在 PowerShell 7 里会**静默返回原文**（没报错、也没替换），别拿它做大文件手术；一律 `IndexOf` + `Substring`。

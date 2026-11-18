@@ -27,8 +27,10 @@
 | repo-2 | 同一补丁进仓库（2026-11-09） | `page/index.html` 同步为 242,206 B / `c67bbded…`；`PITFALLS` 增 D5 | 两版只差 `RINGS` 与 `pmChime` 兜底，补丁必须两边同改，否则文档公示的 md5/体积当场失效 |
 | v23 | 顶行三段式 + 倒计时醒目 + 去农历（2026-11-13/14，真机 5,515,727 B / `921b5097…`） | ① 删掉整套农历换算（`LUNAR_INFO`、`solarToLunar`、`lunarText` 等 39 行）；② 日期行拆三段：左 `#dayLine`、中 `#dateLine`（只剩公历）、右 `#weekLine`（复用已有 `isoWeek()`，与日历页同口径）；③ 倒计时运行态 19px→30px、`#8E8E8E`→`#EDEDED`、加 3px 字距与 `tabular-nums`，行上移 6px，底下垫 320×46 / 8% 白圆角条；④ 状态文本前缀改 `⌛`（`U+231B`） | 农历一天只变一次却挂在每秒的 `tick()` 里重算（2026 年单次约 126 次循环，一天约 1,100 万次），删掉比优化划算；三段式把星期与周数分别贴到 `left:44px` / `right:44px`，中间仍居中，视觉重量左右对称 |
 | repo-3 | 同一批改动进仓库（2026-11-14） | `page/index.html` 同步为 240,070 B / `d25b6c44…`；`docs/images/main-clock.png` 换成按新版页面在实机重拍的匿名图；新增 `docs/SYSTEM-SLIMMING.md` | 页面与系统层文档必须和实机同一状态，否则公示的 md5 与截图当天就对不上 |
+| v24 | 铃声外置（2026-11-18，真机 53,405 B / `0c81a2a8…`） | `RINGS` 只留名字，7 段 `data:audio/mpeg` 切成 `rings/1.js…7.js`（合计 5,352 KB）；新增 `ringLoad()`：首次用到时插 `<script>`，同目录 `rings/` 优先、App 自有外部目录兜底；`ringDecode` 改为"没数据先加载再解码" | 页面 5.5 MB→53 KB，冷启白屏 32–38 s→**2.8–3.0 s**，这才让"每 8 小时重载"变成看不见的操作；音频仍走 WebAudio base64 通道，能力不变；失败退回蜂鸣，不会静默 |
+| repo-4 | 同一批改动进仓库（2026-11-18） | `page/index.html` 同步为 53,495 B / `5697d77e…`；新增 `page/rings/1.js`（187,876 B / `81252d6f…`）；`PITFALLS` 增 G 节 | 仓库版只有一个自制提示音，拆分后同样只剩 53KB 页面；文档写清"谁能读 file://"，避免下次再拿 `/sdcard/clock` 试一遍 |
 
-仓库版（`repo-3`）与真机版（`v23`）的差异只有三处：`RINGS` 里 7 段 `data:audio/mpeg` → 1 段 `data:audio/wav`；`pmChime()` 多了 1.5s 失败回落的 `beepLoop()` 与 6s 收尾清 `beepTimer`；文件体积。其余代码、坐标、配色完全一致，所以上面的尺寸表与坐标表对两版都成立。倒计时持久化（`cdState_v1` / `cdRestoreState()`）与顶行三段式两版逐字相同。
+v24 之后，仓库版（`repo-4`，53,495 B + `page/rings/1.js`）与真机版（`v24`，53,405 B + `rings/1..7.js`）的差异只剩三处：铃声数量（1 段自制 wav vs 7 段 mp3）、`pmChime()` 在仓库版多一个 1.5s 失败回落的 `beepLoop()`、文件体积。页面结构、坐标、配色、`ringLoad` 逻辑完全一致，所以下面的尺寸表与坐标表对两版都成立。
 
 ---
 
