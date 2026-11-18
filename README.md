@@ -171,7 +171,7 @@ $b64 | & adb -s <device-ip>:5555 shell "su -c 'base64 -d > /data/local/tmp/repo.
 8. **老 WebView 里声音只有 WebAudio 一条路。** `new Audio()` 连系统自带 ogg 都报 `NotSupportedError`；正确解是 base64 内嵌 + `decodeAudioData` + `AudioBufferSourceNode`，并且必须在用户手势里 `audioWake()` 把上下文 resume 到 `running`，否则 start 了也不出声。听不见的情况下用 `dumpsys media.audio_flinger` 的 `active track` 证明真的在响。
 9. **改产物永远先留退路。** 每次改页面先复制到 `_backup/`；改 `package-restrictions.xml` 先 base64 取回、`[xml]` 校验、再回写并修权限与 SELinux 上下文。
 10. **调试层不要留在产物里。** 用 localStorage 当临时事件日志（写进去再从 leveldb 取回）是这台无调试通道设备上最好的探针，但收尾必须把探针、`window.onerror`、日志键全部拆干净。
-11. **连跑一天的机器，卡在"换页"而不是"内存耗尽"。** WebView 堆会缓慢爬到 300–360 MB 的平台期，1 GB 机型装不下，活页被压进 zram，页面每秒刷新都要解压一次（major fault），内核态 CPU 被打满、整机卡。判据是 `dumpsys cpuinfo` 里的 user/kernel 占比（实测 kiosk 内核态 96%、major fault 596 万）；而这台机器的 `loadavg` 被 7 个常驻 D 态线程钉在 7.2，**不能当卡顿指标**。处置是让看门狗每天凌晨重载一次（详见 `docs/PITFALLS.md` A8）。
+11. **连跑一天的机器，卡在"换页"而不是"内存耗尽"。** WebView 堆会缓慢爬到 300–360 MB 的平台期，1 GB 机型装不下，活页被压进 zram，页面每秒刷新都要解压一次（major fault），内核态 CPU 被打满、整机卡。判据是 `dumpsys cpuinfo` 里的 user/kernel 占比（实测 kiosk 内核态 96%、major fault 596 万）；而这台机器的 `loadavg` 被 7 个常驻 D 态线程钉在 7.2，**不能当卡顿指标**。处置是让看门狗在 22:00 与 07:40 各重载一次（白天 08:00–22:00 不重载；详见 `docs/PITFALLS.md` A8 与 `module/README.md`）。
 
 ---
 

@@ -75,7 +75,7 @@ adb shell su -c "base64 <path>"
 
 **判读注意（重要）**：这台机器的 `/proc/loadavg` 长期停在 **7.2–8.5**，因为它有 7 个常驻 D 态内核线程（`GCPU`、`hang_detect`、`entropy_thread`、`bat_thread_kthread`、`ion_history`、`fuse_log`、`display_esd_che`）。**loadavg 在这个设备上不能当卡顿指标**，要看 `dumpsys cpuinfo` 的 user/kernel 占比和 major fault 计数。整机 `idle` 也可以直接算 `/proc/stat` 两帧差。
 
-**处置**：看门狗 `service.sh` 里加"每日凌晨 3–5 点重载一次"（距上次 ≥ 6 小时才做，阈值 `MIN_AGE_H`），另设 30 小时兜底 `HARD_H`。重载 = `am force-stop` + 重新 `am start`，期间页面空白约 30 秒（5.5 MB 母版），所以只放凌晨；连续错过窗口才允许白天做。
+**处置**：看门狗 `service.sh` 定时重载，两个触发点 22:00–22:19 与 07:40–07:59，`08:00–22:00` 一律不重载；`MIN_AGE_H=4` 防止刚拉起又被重载，`HARD_H=26` 只在允许窗口内补（不设"不限时段"兜底——按小时触发的兜底必然落到白天，违反窗口规则）。v24 把页面压到 53 KB 后重载白屏只有 2.8–3.0 秒，一天两次才可行；5.5 MB 母版时期是 30 秒，只能放凌晨一次。判定逻辑可用 `sh service.sh --test-due <epoch>` 单独验证。
 
 **实测效果**（同一次处理，force-stop 前后 40 秒）：
 
